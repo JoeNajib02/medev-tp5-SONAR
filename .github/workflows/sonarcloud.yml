@@ -38,10 +38,20 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('JeuDeDame/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Build and analyze
+     - name: Build and analyze
+      working-directory: JeuDeDame
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            - name: Build and analyze
         working-directory: JeuDeDame
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -B clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar Dsonar.projectKey=JoeNajib02_medev-tp5-SONAR Dsonar.java.binaries=target/classes Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+        run: mvn -B clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          -Dsonar.projectKey=JoeNajib02_medev-tp5-SONAR \
+          -Dsonar.organization=joenajib02 \
+          -Dsonar.java.binaries=target/classes \
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+
 
