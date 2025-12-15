@@ -16,22 +16,37 @@ public class JeuDeDame {
 
             String entree = scanner.nextLine().trim();
 
-            // 1) Commandes
-            if (estCommande(entree)) {
-                if (entree.equals("quitter")) {
-                    System.out.println("Au revoir !");
-                    jeuEnCours = false;
-                    continue;
-                }
+            // Commandes
+            if (entree.equals("quitter")) {
+                System.out.println("Au revoir !");
+                jeuEnCours = false;
+                continue;
+            }
 
-                Jeu nouvellePartie = gererCommande(partie, entree);
-                if (nouvellePartie != null) {
-                    partie = nouvellePartie;
+            if (entree.startsWith("sauver")) {
+                String nom = extraireArgument(entree);
+                if (nom == null) {
+                    System.out.println("Erreur : utilisez 'sauver NOM'.");
+                } else {
+                    partie.sauvegarder(nom);
                 }
                 continue;
             }
 
-            // 2) Coup (coordonnées)
+            if (entree.startsWith("charger")) {
+                String nom = extraireArgument(entree);
+                if (nom == null) {
+                    System.out.println("Erreur : utilisez 'charger NOM'.");
+                } else {
+                    Jeu nouvellePartie = Jeu.charger(nom);
+                    if (nouvellePartie != null) {
+                        partie = nouvellePartie;
+                    }
+                }
+                continue;
+            }
+
+            // Coup (coordonnées)
             jouerUnCoup(partie, entree);
         }
 
@@ -50,38 +65,6 @@ public class JeuDeDame {
         partie.getPlateau().afficher();
         System.out.println("C'est au tour des " + partie.getJoueurCourant());
         System.out.print("Votre coup > ");
-    }
-
-    private static boolean estCommande(String entree) {
-        return entree.equals("quitter")
-                || entree.startsWith("sauver")
-                || entree.startsWith("charger");
-    }
-
-    /**
-     * @return une nouvelle partie si "charger" réussit, sinon null
-     */
-    private static Jeu gererCommande(Jeu partie, String entree) {
-        if (entree.startsWith("sauver")) {
-            String nom = extraireArgument(entree);
-            if (nom == null) {
-                System.out.println("Erreur : utilisez 'sauver NOM'.");
-                return null;
-            }
-            partie.sauvegarder(nom);
-            return null;
-        }
-
-        if (entree.startsWith("charger")) {
-            String nom = extraireArgument(entree);
-            if (nom == null) {
-                System.out.println("Erreur : utilisez 'charger NOM'.");
-                return null;
-            }
-            return Jeu.charger(nom); // peut être null si échec
-        }
-
-        return null;
     }
 
     private static String extraireArgument(String entree) {
@@ -115,4 +98,16 @@ public class JeuDeDame {
     }
 
     private static int[] parseCoords(String entree) {
-        String[] coords = entree.sp
+        String[] coords = entree.split("\\s+");
+        if (coords.length != 4) {
+            throw new IllegalArgumentException("4 nombres attendus");
+        }
+
+        return new int[]{
+                Integer.parseInt(coords[0]),
+                Integer.parseInt(coords[1]),
+                Integer.parseInt(coords[2]),
+                Integer.parseInt(coords[3])
+        };
+    }
+}
