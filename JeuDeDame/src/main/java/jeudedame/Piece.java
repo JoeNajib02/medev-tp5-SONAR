@@ -57,158 +57,149 @@ public class Piece implements Serializable {
     // DEPLACER : ne pas déplacer si la case d'arrivée est occupée
     // -----------------------------------------------------------
     public boolean deplacer(Plateau plateau, Direction direction, int distance) {
-        if (plateau == null || direction == null) {
-            throw new IllegalArgumentException("Plateau ou direction null.");
-        }
+        verifierPlateauEtDirection(plateau, direction);
 
         int x1 = pos.getX();
         int y1 = pos.getY();
 
-        // Règles de distance : pion vs dame
-        if (!Boolean.TRUE.equals(isKing)) {
-            // pion : toujours 1 case, on force
-            distance = 1;
-        } else {
-            // dame : au moins 1 case
-            if (distance <= 0) {
-                throw new IllegalArgumentException("La distance doit être positive pour une dame.");
-            }
-        }
+        int d = calculerDistanceDeplacement(distance);
+        int[] delta = calculerDelta(direction, d);
 
-        int dx = 0, dy = 0;
-        switch (direction) {
-            case HAUT_GAUCHE -> { dx = -distance; dy = -distance; }
-            case HAUT_DROIT  -> { dx =  distance; dy = -distance; }
-            case BAS_GAUCHE  -> { dx = -distance; dy =  distance; }
-            case BAS_DROIT   -> { dx =  distance; dy =  distance; }
-        }
+        int x2 = x1 + delta[0];
+        int y2 = y1 + delta[1];
 
-        int x2 = x1 + dx;
-        int y2 = y1 + dy;
-
-        // Vérifier les bords du plateau (on ne touche pas à Plateau)
-        if (x2 < 0 || x2 >= TAILLE || y2 < 0 || y2 >= TAILLE) {
+        if (!estDansPlateau(x2, y2)) {
             return false;
         }
 
-        // Si il y a déjà un pion ou une dame à l'arrivée → on ne bouge pas
         if (plateau.getPiece(x2, y2) != null) {
             return false;
         }
 
-        // Déplacement autorisé : on utilise bougerPiece du Plateau
         plateau.bougerPiece(x1, y1, x2, y2);
-        // bougerPiece met déjà pos à jour via setPos(new Point2D(x2,y2))
-
         return true;
     }
 
+    private int calculerDistanceDeplacement(int distance) {
+        if (!Boolean.TRUE.equals(isKing)) {
+            return 1; // pion : toujours 1 case
+        }
+        if (distance <= 0) {
+            throw new IllegalArgumentException("La distance doit être positive pour une dame.");
+        }
+        return distance;
+    }
+
     // -----------------------------------------------------------
-    // MANGER : vérifier s'il y a une pièce à manger
-    //         puis déplacer l'attaquant
-    //  ⚠️ La suppression réelle de la victime dans la grille
-    //     nécessite une méthode de Plateau qui met la case à null.
+    // MANGER : vérifier s'il y a une pièce à manger puis déplacer
     // -----------------------------------------------------------
     public boolean manger(Plateau plateau, Direction direction, int distance) {
-        if (plateau == null || direction == null) {
-            throw new IllegalArgumentException("Plateau ou direction null.");
-        }
+        verifierPlateauEtDirection(plateau, direction);
+        verifierDistanceManger(distance);
 
         int x1 = pos.getX();
         int y1 = pos.getY();
 
-        // Règle pion / dame sur la distance
-        if (!Boolean.TRUE.equals(isKing)) {
-            // pion : doit sauter exactement 2 cases
-            if (distance != 2) {
-                throw new IllegalArgumentException("Un pion doit sauter exactement 2 cases pour manger.");
-            }
-        } else {
-            // dame : distance >= 2
-            if (distance < 2) {
-                throw new IllegalArgumentException("Une dame doit sauter au moins 2 cases pour manger.");
-            }
-        }
+        int[] delta = calculerDelta(direction, distance);
+        int x2 = x1 + delta[0];
+        int y2 = y1 + delta[1];
 
-        int dx = 0, dy = 0;
-        switch (direction) {
-            case HAUT_GAUCHE -> { dx = -distance; dy = -distance; }
-            case HAUT_DROIT  -> { dx =  distance; dy = -distance; }
-            case BAS_GAUCHE  -> { dx = -distance; dy =  distance; }
-            case BAS_DROIT   -> { dx =  distance; dy =  distance; }
-        }
-
-        int x2 = x1 + dx;
-        int y2 = y1 + dy;
-
-        // Vérifier les bords
-        if (x2 < 0 || x2 >= TAILLE || y2 < 0 || y2 >= TAILLE) {
+        if (!estDansPlateau(x2, y2)) {
             return false;
         }
 
-        // La case d'arrivée doit être vide
         if (plateau.getPiece(x2, y2) != null) {
             return false;
         }
 
-        // --------- CAS PION : une seule pièce à manger, au milieu ----------
         if (!Boolean.TRUE.equals(isKing)) {
-            int mx = (x1 + x2) / 2;
-            int my = (y1 + y2) / 2;
-
-            Piece victime = plateau.getPiece(mx, my);
-            if (victime == null) {
-                return false; // rien à manger
-            }
-            if (victime.getCouleur().equals(this.couleur)) {
-                return false; // même couleur → interdit
-            }
-
-            // Ici, on devrait supprimer la victime de la grille,
-            // mais Plateau ne propose pas de méthode pour mettre null.
-
-            // On déplace au moins l'attaquant :
-            plateau.bougerPiece(x1, y1, x2, y2);
-            return true;
+            return mangerPion(plateau, x1, y1, x2, y2);
         }
 
-        // --------- CAS DAME : trouver une (et une seule) pièce sur la diagonale ----------
-        int stepX = dx / Math.abs(dx); // +1 ou -1
-        int stepY = dy / Math.abs(dy); // +1 ou -1
+        return mangerDame(plateau, x1, y1, x2, y2);
+    }
+
+    private void verifierPlateauEtDirection(Plateau plateau, Direction direction) {
+        if (plateau == null || direction == null) {
+            throw new IllegalArgumentException("Plateau ou direction null.");
+        }
+    }
+
+    private void verifierDistanceManger(int distance) {
+        if (!Boolean.TRUE.equals(isKing)) {
+            if (distance != 2) {
+                throw new IllegalArgumentException("Un pion doit sauter exactement 2 cases pour manger.");
+            }
+            return;
+        }
+
+        if (distance < 2) {
+            throw new IllegalArgumentException("Une dame doit sauter au moins 2 cases pour manger.");
+        }
+    }
+
+    private boolean mangerPion(Plateau plateau, int x1, int y1, int x2, int y2) {
+        int mx = (x1 + x2) / 2;
+        int my = (y1 + y2) / 2;
+
+        Piece victime = plateau.getPiece(mx, my);
+        if (victime == null) {
+            return false;
+        }
+
+        if (victime.getCouleur().equals(this.couleur)) {
+            return false;
+        }
+
+        // ⚠️ Plateau ne permet pas de supprimer la victime (mettre null).
+        // On déplace au moins l'attaquant :
+        plateau.bougerPiece(x1, y1, x2, y2);
+        return true;
+    }
+
+    private boolean mangerDame(Plateau plateau, int x1, int y1, int x2, int y2) {
+        int stepX = Integer.compare(x2, x1); // -1 ou +1
+        int stepY = Integer.compare(y2, y1); // -1 ou +1
 
         int cx = x1 + stepX;
         int cy = y1 + stepY;
 
         Piece victime = null;
-        int vx = -1, vy = -1;
 
         while (cx != x2 && cy != y2) {
             Piece p = plateau.getPiece(cx, cy);
             if (p != null) {
                 if (victime != null) {
-                    // plus d'une pièce sur le chemin → prise illégale
-                    return false;
+                    return false; // plus d'une pièce sur le chemin
+                }
+                if (p.getCouleur().equals(this.couleur)) {
+                    return false; // pièce alliée sur le chemin
                 }
                 victime = p;
-                vx = cx;
-                vy = cy;
             }
             cx += stepX;
             cy += stepY;
         }
 
         if (victime == null) {
-            return false; // aucune pièce à manger
-        }
-        if (victime.getCouleur().equals(this.couleur)) {
-            return false; // pièce de la même couleur
+            return false;
         }
 
-        // Ici aussi, on devrait supprimer la victime (vx, vy) de la grille,
-        // mais on ne peut pas sans une méthode dans Plateau.
-
-        // On déplace au moins la dame :
+        // ⚠️ Plateau ne permet pas de supprimer la victime.
         plateau.bougerPiece(x1, y1, x2, y2);
         return true;
+    }
+
+    private int[] calculerDelta(Direction direction, int distance) {
+        return switch (direction) {
+            case HAUT_GAUCHE -> new int[]{-distance, -distance};
+            case HAUT_DROIT  -> new int[]{ distance, -distance};
+            case BAS_GAUCHE  -> new int[]{-distance,  distance};
+            case BAS_DROIT   -> new int[]{ distance,  distance};
+        };
+    }
+
+    private boolean estDansPlateau(int x, int y) {
+        return x >= 0 && x < TAILLE && y >= 0 && y < TAILLE;
     }
 }
